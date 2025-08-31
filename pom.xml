@@ -19,7 +19,7 @@
 
         <!-- spark related -->
         <spark-version>4.0.0</spark-version>
-        <delta-version>3.3.0</delta-version>		
+        <delta-version>4.0.0</delta-version>		
 
         <!-- test related -->
         <scala-test-version>3.2.19</scala-test-version>
