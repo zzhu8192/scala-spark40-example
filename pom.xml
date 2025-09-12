@@ -18,7 +18,7 @@
         <scala-patch-version>16</scala-patch-version>
 
         <!-- spark related -->
-        <spark-version>4.0.0</spark-version>
+        <spark-version>4.0.1</spark-version>
         <delta-version>4.0.0</delta-version>		
 
         <!-- test related -->
