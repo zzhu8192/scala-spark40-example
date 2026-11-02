@@ -15,11 +15,11 @@
         <scala-maven-plugin-version>4.9.2</scala-maven-plugin-version>
         <scala-major-version>2</scala-major-version>
         <scala-minor-version>13</scala-minor-version>
-        <scala-patch-version>16</scala-patch-version>
+        <scala-patch-version>18</scala-patch-version>
 
         <!-- spark related -->
-        <spark-version>4.0.1</spark-version>
-        <delta-version>4.0.0</delta-version>		
+        <spark-version>4.2.1</spark-version>
+        <delta-version>4.2.0</delta-version>		
 
         <!-- test related -->
         <scala-test-version>3.2.19</scala-test-version>
@@ -53,20 +53,6 @@
             <artifactId>commons-io</artifactId>
             <version>${commons-io-version}</version>
         </dependency>
-
-<!--        <dependency>
-            <groupId>com.github.plokhotnyuk.jsoniter-scala</groupId>
-            <artifactId>jsoniter-scala-core_${scala-major-version}.${scala-minor-version}</artifactId>
-            <version>${jsoniter-version}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.github.plokhotnyuk.jsoniter-scala</groupId>
-            <artifactId>jsoniter-scala-macros_${scala-major-version}.${scala-minor-version}</artifactId>
-            <version>${jsoniter-version}</version>
-            <scope>compile-internal</scope>
-        </dependency>-->
-        <!-- https://mvnrepository.com/artifact/com.fasterxml.jackson.module/jackson-module-scala -->
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
             <artifactId>jackson-module-scala_${scala-major-version}.${scala-minor-version}</artifactId>
