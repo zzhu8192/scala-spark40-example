@@ -7,7 +7,7 @@
 [![Delta Lake 4.2.0](https://img.shields.io/badge/Delta%20Lake-4.2.0-00ADD8.svg)](https://delta.io/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
-A production-ready Maven skeleton template for **Apache Spark 4.x** applications written in **Scala 2.13** running on **Java 21 (LTS)**. Includes pre-configured unit testing utilities, Delta Lake support, Hive metastore integration, lean Fat-JAR assembly packaging, and ready-to-run execution scripts.
+A production-ready Maven skeleton template for **Apache Spark 4.x** applications written in **Scala 2.13** running on **Java 21 (LTS)**. Includes pre-configured unit testing utilities, Delta Lake support, Hive metastore integration, sample configuration templates, lean Fat-JAR assembly packaging, and ready-to-run execution scripts.
 
 ---
 
@@ -18,6 +18,8 @@ A production-ready Maven skeleton template for **Apache Spark 4.x** applications
 - [Tech Stack](#tech-stack)
 - [System Requirements](#system-requirements)
 - [Prerequisites & Installation](#prerequisites--installation)
+- [Delta Lake Integration Guide](#delta-lake-integration-guide)
+- [Hive Metastore with Remote Derby Setup](#hive-metastore-with-remote-derby-setup)
 - [Quick Start](#quick-start)
 - [Running the Application](#running-the-application)
 - [Running & Debugging in IntelliJ IDEA](#running--debugging-in-intellij-idea)
@@ -34,7 +36,8 @@ Configuring Apache Spark 4.x with Scala 2.13, Java 21, and Delta Lake in Maven o
 - Java 21 strong module encapsulation (`--add-opens` requirements for Spark internal reflection).
 - Maven assembly fat-JAR bloat when Spark / Scala runtime jars are bundled inadvertently instead of marked `provided`.
 - IDE runtime classpath issues (`ClassNotFoundException`) when dependencies are marked `provided`.
-- Spark unit test isolation, Derby metastore lock contention, and log verbosity.
+- Delta Lake dependency wiring and catalog extensions.
+- Spark unit test isolation, Derby metastore lock contention (`metastore_db`), and log verbosity.
 
 This repository serves as a **battle-tested baseline skeleton** that solves these challenges out of the box so you can start writing Spark jobs and unit tests immediately.
 
@@ -44,6 +47,9 @@ This repository serves as a **battle-tested baseline skeleton** that solves thes
 
 - **Apache Spark 4.x & Delta Lake 4.x**: Tested with Spark 4.2.1 and Delta Lake 4.2.0.
 - **Java 21 (LTS) & Scala 2.13**: Built for modern LTS Java runtimes with Java 17 bytecode compatibility flags.
+- **Sample Spark Configurations**: Ready-to-use template files in [`conf/`](conf/):
+  - [`conf/spark-defaults.conf.template`](conf/spark-defaults.conf.template): Pre-configured Delta catalog, SQL extensions, and adaptive query execution.
+  - [`conf/core-site.xml.template`](conf/core-site.xml.template): Remote Derby Network Server connection for concurrent Hive metastore access.
 - **Optimized Unit Testing (`TestSparkSession`)**:
   - Reusable test suite trait using `ScalaTest` (FlatSpec) and `JUnit 4`.
   - Selective log suppression (reduces noisy Spark/Hadoop/Hive logs during test execution).
@@ -68,6 +74,7 @@ This repository serves as a **battle-tested baseline skeleton** that solves thes
 | **Scala** | 2.13.18 | Modern Scala 2.13 series |
 | **Apache Spark** | 4.2.1 | `spark-core`, `spark-sql`, `spark-hive` |
 | **Delta Lake** | 4.2.0 | `delta-spark` |
+| **Apache Derby** | 10.16.1.1 | `derbyclient` (network client for remote metastore) |
 | **Apache Maven** | 3.9.9+ | Build and dependency orchestration |
 | **ScalaTest** | 3.2.19 | Unit testing framework |
 | **JUnit** | 4.13.2 | Test runner integration (`JUnitRunner`) |
@@ -129,6 +136,153 @@ On Windows, Hadoop native file operations require `winutils.exe` and `hadoop.dll
 2. Place them in `C:\hadoop\bin`.
 3. Set environment variable `HADOOP_HOME=C:\hadoop` and add `C:\hadoop\bin` to `PATH`.
 4. Copy `winutils.exe` and `hadoop.dll` into `%SPARK_HOME%\bin` as well.
+
+---
+
+## Delta Lake Integration Guide
+
+Integrating Delta Lake with Apache Spark often confuses new users because **two distinct requirements** must both be satisfied:
+1. **Runtime Jars on the Classpath**: Delta Lake dependencies are marked `<scope>provided</scope>` in [`pom.xml`](pom.xml) so the assembly Fat-JAR stays small. However, standard Spark distributions **do not bundle Delta Lake by default**.
+2. **Spark SQL Configuration**: Spark needs to be explicitly told to use Delta's parser extension and catalog; otherwise, commands like `USING delta`, `MERGE INTO`, `VACUUM`, and `RESTORE` will fail to parse.
+
+### Step 1: Supplying Delta Jars
+
+Choose **one** of the following methods:
+
+- **Method A: Copy JARs to `$SPARK_HOME/jars` (Recommended for Local Dev)**:
+  Download the matching Delta Lake JARs from Maven Central and drop them directly into your local `$SPARK_HOME/jars/` directory:
+  - `delta-spark_2.13-4.2.0.jar`
+  - `delta-storage-4.2.0.jar`
+  Once copied, any `spark-submit` or `spark-shell` execution automatically has Delta on its classpath.
+
+- **Method B: Dynamic Resolution via `--packages`**:
+  Pass the Delta Maven coordinates when invoking `spark-submit`:
+  ```bash
+  spark-submit \
+    --packages io.delta:delta-spark_2.13:4.2.0 \
+    --class com.uj.example.Example \
+    target/example-1.0.0-SNAPSHOT-jar-with-dependencies.jar
+  ```
+
+### Step 2: Configuring Spark for Delta
+
+Set the required Delta catalog and SQL extension properties using **any** of the following approaches:
+
+- **Approach 1: In `conf/spark-defaults.conf` (System-wide)**:
+  Add the following lines to `$SPARK_HOME/conf/spark-defaults.conf` (see [`conf/spark-defaults.conf.template`](conf/spark-defaults.conf.template)):
+  ```properties
+  spark.sql.extensions               io.delta.sql.DeltaSparkSessionExtension
+  spark.sql.catalog.spark_catalog    org.apache.spark.sql.delta.catalog.DeltaCatalog
+  ```
+
+- **Approach 2: In Scala Application Code (`SparkSession.builder`)**:
+  ```scala
+  import org.apache.spark.sql.SparkSession
+
+  val spark = SparkSession.builder()
+    .appName("DeltaApplication")
+    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+    .getOrCreate()
+  ```
+
+- **Approach 3: Via CLI Arguments**:
+  ```bash
+  spark-submit \
+    --conf "spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension" \
+    --conf "spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog" \
+    --class com.uj.example.Example \
+    target/example-1.0.0-SNAPSHOT-jar-with-dependencies.jar
+  ```
+
+---
+
+## Hive Metastore with Remote Derby Setup
+
+### Why Use a Remote Derby Network Server?
+
+By default, Spark uses an **embedded Apache Derby database** for its local Hive metastore. Embedded Derby writes to a local directory `./metastore_db/` and places an exclusive lock (`db.lck`) on the files.
+
+**The Problem**:
+Only **one JVM process** can hold the embedded Derby lock at a time. If you run a Spark job, a `spark-shell`, or unit tests while another Spark process is running, the second process will fail immediately:
+```
+ERROR XSDB6: Another instance of Derby may have already booted the database /.../metastore_db
+```
+
+**The Solution**:
+Run Apache Derby as a **locally hosted Network Server** (remoting enabled via DRDA on port `1527`). All Spark processes connect over TCP without acquiring local file locks, allowing **multiple concurrent Spark sessions, CLI shells, and unit test suites** to share the same local Hive catalog safely.
+
+### Required Dependencies: `derbyclient.jar`
+
+- Embedded Derby uses `derby.jar` (`org.apache.derby.jdbc.EmbeddedDriver`), which ships with standard Spark distributions.
+- Remote Derby requires `org.apache.derby.jdbc.ClientDriver`, which is packaged in **`derbyclient.jar`**.
+- Spark's default distribution **does not include `derbyclient.jar`**.
+
+To resolve this dependency:
+1. **In Maven**: This project already includes `org.apache.derby:derbyclient:10.16.1.1` (`provided` scope) in [`pom.xml`](pom.xml).
+2. **In `$SPARK_HOME/jars`**: Download `derbyclient-10.16.1.1.jar` from Maven Central and copy it into `$SPARK_HOME/jars/`:
+   ```bash
+   curl -o "$SPARK_HOME/jars/derbyclient-10.16.1.1.jar" \
+     https://repo1.maven.org/maven2/org/apache/derby/derbyclient/10.16.1.1/derbyclient-10.16.1.1.jar
+   ```
+
+### Configuration Files
+
+Sample templates are provided in the [`conf/`](conf/) directory:
+
+#### 1. [`conf/core-site.xml.template`](conf/core-site.xml.template)
+Copy this file to `$SPARK_HOME/conf/core-site.xml`:
+```xml
+<configuration>
+    <!-- Connect to local Derby Network Server over TCP on port 1527 -->
+    <property>
+        <name>javax.jdo.option.ConnectionURL</name>
+        <value>jdbc:derby://127.0.0.1:1527/metastore;create=true</value>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionDriverName</name>
+        <value>org.apache.derby.jdbc.ClientDriver</value>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionUserName</name>
+        <value>APP</value>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionPassword</name>
+        <value>mine</value>
+    </property>
+</configuration>
+```
+
+#### 2. [`conf/spark-defaults.conf.template`](conf/spark-defaults.conf.template)
+Copy this file to `$SPARK_HOME/conf/spark-defaults.conf`:
+```properties
+spark.sql.catalogImplementation  hive
+spark.sql.warehouse.dir          /tmp/hive-warehouse
+```
+
+### Starting the Derby Network Server
+
+Start the Derby server before launching Spark applications:
+
+- **Linux / macOS**:
+  ```bash
+  # Using Apache Derby binary:
+  $DERBY_HOME/bin/startNetworkServer -h 127.0.0.1 -p 1527
+  
+  # Or directly via Java:
+  java -classpath "/usr/local/derby/lib/*" org.apache.derby.drda.NetworkServerControl start -h 127.0.0.1 -p 1527
+  ```
+- **Windows**:
+  ```cmd
+  %DERBY_HOME%\bin\startNetworkServer.bat -h 127.0.0.1 -p 1527
+  ```
+- **Verify**: Check that port 1527 is listening:
+  ```bash
+  ss -tlpn | grep 1527
+  ```
+
+Once running, any Spark job or `spark-shell` configured with `core-site.xml` will connect to the remote metastore concurrently without conflicts.
 
 ---
 
@@ -203,7 +357,7 @@ spark-submit \
 > [!IMPORTANT]
 > **Enable "Include dependencies with Provided scope"**
 >
-> In `pom.xml`, Apache Spark and Scala dependencies are marked `<scope>provided</scope>` so they are not packaged inside the final deployment JAR (since the cluster runtime already provides them).
+> In [`pom.xml`](pom.xml), Apache Spark, Delta Lake, Derby client, and Scala dependencies are marked `<scope>provided</scope>` so they are not packaged inside the final deployment JAR (since the cluster runtime already provides them).
 >
 > When running or debugging locally inside IntelliJ, IntelliJ by default strips `provided` dependencies from the classpath. You MUST enable this setting:
 > 1. Open your Run/Debug Configuration (**Run -> Edit Configurations...**).
@@ -230,7 +384,7 @@ When executing or debugging `Example.main` directly in IntelliJ without `spark-s
 --add-opens=java.base/sun.security.action=ALL-UNNAMED
 --add-opens=java.base/sun.util.calendar=ALL-UNNAMED
 ```
-*(Note: These options are already configured automatically in `pom.xml` for `mvn test`.)*
+*(Note: These options are already configured automatically in [`pom.xml`](pom.xml) for `mvn test`.)*
 
 ---
 
@@ -238,7 +392,7 @@ When executing or debugging `Example.main` directly in IntelliJ without `spark-s
 
 ### 1. `ClassNotFoundException: org.apache.spark.sql.SparkSession`
 - **Symptom**: When running `Example.main` or running tests in IntelliJ, the run immediately crashes with a `ClassNotFoundException` or `NoClassDefFoundError` for Spark classes.
-- **Cause**: Spark dependencies are marked `<scope>provided</scope>` in `pom.xml`.
+- **Cause**: Spark dependencies are marked `<scope>provided</scope>` in [`pom.xml`](pom.xml).
 - **Fix**: In your IntelliJ Run Configuration, click **Modify Options** and ensure **Include dependencies with 'provided' scope** is enabled.
 
 ---
@@ -250,7 +404,7 @@ When executing or debugging `Example.main` directly in IntelliJ without `spark-s
   cannot access class sun.nio.ch.DirectBuffer (in module java.base)
   ```
 - **Cause**: Strong module encapsulation introduced in Java 17 and enforced in Java 21 prevents reflective access to internal JDK packages.
-- **Fix**: Ensure the required `--add-opens` and `--add-exports` JVM arguments (listed in the IntelliJ section above and configured in `pom.xml` under `maven-surefire-plugin`) are present in your JVM arguments.
+- **Fix**: Ensure the required `--add-opens` and `--add-exports` JVM arguments (listed in the IntelliJ section above and configured in [`pom.xml`](pom.xml) under `maven-surefire-plugin`) are present in your JVM arguments.
 
 ---
 
@@ -267,13 +421,14 @@ When executing or debugging `Example.main` directly in IntelliJ without `spark-s
 
 ### 4. `Namespace test_db was created concurrently. Ignoring.` or Derby Metastore Lock Errors
 - **Symptom**: Warning logs during test runs or errors like `ERROR XSDB6: Another instance of Derby may have already booted the database`.
-- **Cause**: Apache Derby (used as the default local Hive metastore database) only allows one JVM process to lock `metastore_db` at a time.
+- **Cause**: Embedded Apache Derby only allows one JVM process to lock `metastore_db` at a time.
 - **Fix**:
-  - The project's `TestSparkSession` trait isolates and synchronizes test runs to prevent test collisions.
+  - The project's [`TestSparkSession`](src/test/scala/com/uj/testutils/TestSparkSession.scala) trait isolates and synchronizes test runs to prevent test collisions.
   - If a stale lock remains after an unexpected JVM crash, delete the local `metastore_db/` directory:
     ```bash
     rm -rf metastore_db/ derby.log spark-warehouse/
     ```
+  - For multi-process concurrency during local development, use the [Remote Derby Network Server setup](#hive-metastore-with-remote-derby-setup) with [`conf/core-site.xml.template`](conf/core-site.xml.template).
 
 ---
 
@@ -293,6 +448,9 @@ scala-spark40-example/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml              # GitHub Actions CI workflow (Java 21 / Maven test)
+├── conf/
+│   ├── core-site.xml.template  # Sample configuration for remote Derby Hive Metastore
+│   └── spark-defaults.conf.template # Sample Spark & Delta Lake default properties
 ├── CONTRIBUTING.md             # Contribution guidelines
 ├── LICENSE                     # Apache License 2.0
 ├── README.md                   # Project documentation
