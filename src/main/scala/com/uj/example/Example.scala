@@ -165,7 +165,7 @@ object Example {
       "Name": "Test",
       "Type": "Spark",
       "Args": [
-        "--class", "com.bhp.dp.example.Example",
+        "--class", "com.uj.example.Example",
         "--deploy-mode", "cluster",
         "--master","yarn",
 
