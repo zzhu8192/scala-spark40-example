@@ -1,6 +1,5 @@
 # Scala Spark 4.x Example Project
 
-[![CI](https://github.com/zzhu8192/scala-spark40-example/actions/workflows/ci.yml/badge.svg)](https://github.com/zzhu8192/scala-spark40-example/actions/workflows/ci.yml)
 [![Java 21](https://img.shields.io/badge/Java-21%20LTS-orange.svg)](https://adoptium.net/)
 [![Scala 2.13](https://img.shields.io/badge/Scala-2.13.18-red.svg)](https://www.scala-lang.org/)
 [![Apache Spark 4.2.1](https://img.shields.io/badge/Apache%20Spark-4.2.1-blue.svg)](https://spark.apache.org/)
@@ -445,9 +444,6 @@ When executing or debugging `Example.main` directly in IntelliJ without `spark-s
 scala-spark40-example/
 ├── .editorconfig               # Cross-editor formatting and indentation rules
 ├── .gitignore                  # Git ignore rules for Maven, Spark, and IDE artifacts
-├── .github/
-│   └── workflows/
-│       └── ci.yml              # GitHub Actions CI workflow (Java 21 / Maven test)
 ├── conf/
 │   ├── core-site.xml.template  # Sample configuration for remote Derby Hive Metastore
 │   └── spark-defaults.conf.template # Sample Spark & Delta Lake default properties
