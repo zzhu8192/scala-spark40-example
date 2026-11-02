@@ -98,4 +98,16 @@ hs_err_pid*
 **/*.orig
 .DS_Store
 
-**/metastore_db/*
+# Spark and Hive runtime artifacts
+metastore_db/
+**/metastore_db/
+spark-warehouse/
+**/spark-warehouse/
+derby.log
+*.log
+
+# Scala IDE & build tools
+.metals/
+.bsp/
+.bloop/
+

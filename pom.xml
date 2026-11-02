@@ -7,6 +7,17 @@
     <groupId>com.uj</groupId>
     <artifactId>example</artifactId>
     <version>1.0.0-SNAPSHOT</version>
+    <name>Scala Spark 4.x Example Skeleton</name>
+    <description>Example Maven skeleton project for Apache Spark 4.x with Scala 2.13, Java 21, and Delta Lake</description>
+    <url>https://github.com/zzhu8192/scala-spark40-example</url>
+
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
