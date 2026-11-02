@@ -1,87 +1,328 @@
-## spark-job-with-testing-example
+# Scala Spark 4.x Example Project
 
-Spark example project, with unit testing (Spark 4.x / Scala 2.13 / Java 21)
+[![CI](https://github.com/zzhu8192/scala-spark40-example/actions/workflows/ci.yml/badge.svg)](https://github.com/zzhu8192/scala-spark40-example/actions/workflows/ci.yml)
+[![Java 21](https://img.shields.io/badge/Java-21%20LTS-orange.svg)](https://adoptium.net/)
+[![Scala 2.13](https://img.shields.io/badge/Scala-2.13.18-red.svg)](https://www.scala-lang.org/)
+[![Apache Spark 4.2.1](https://img.shields.io/badge/Apache%20Spark-4.2.1-blue.svg)](https://spark.apache.org/)
+[![Delta Lake 4.2.0](https://img.shields.io/badge/Delta%20Lake-4.2.0-00ADD8.svg)](https://delta.io/)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
-### Table of Contents
+A production-ready Maven skeleton template for **Apache Spark 4.x** applications written in **Scala 2.13** running on **Java 21 (LTS)**. Includes pre-configured unit testing utilities, Delta Lake support, Hive metastore integration, lean Fat-JAR assembly packaging, and ready-to-run execution scripts.
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Tech Stack](#tech-stack)
 - [System Requirements](#system-requirements)
-- [Installation](#installation)
-- [How to Run/Debug this project](#run-debug)
+- [Prerequisites & Installation](#prerequisites--installation)
+- [Quick Start](#quick-start)
+- [Running the Application](#running-the-application)
+- [Running & Debugging in IntelliJ IDEA](#running--debugging-in-intellij-idea)
+- [Troubleshooting & Common Errors](#troubleshooting--common-errors)
+- [Project Structure](#project-structure)
+- [Contributing](#contributing)
+- [License](#license)
 
-### System Requirements
-In general, Spark is going to be both CPU and memory bound.  This is both true for running the job via spark-submit, or running Scala unit tests.   Also, the Scala compiler is a beast in terms of CPU and memory hog.  The Intellij IDEA is also memory and CPU intensive.  As such, the more cores and more memory you have, the better off your development experience will be:
-- Ideal:  **32 GB RAM,  8+ cores / 16T SSD**
-- Medium: **16 GB RAM,  4 cores / 8T, SSD**
-- Masochist:   8 GB RAM, 4 cores  <- this is highly unlikely to run or compile well
+---
 
- You need the following tools (IDE), runtimes, and or libraries. 
-- Some distribution of Java 21 SDK runtime.  
-- Intellij IDEA Community Edition (You do **NOT** need Enterprise edition)
-- Spark 3.3.1 binary distribution (compiled for Hadoop 3.3 and with Scala 2.13)
-- Hadoop Winutils binary for Spark 3.3.1 (windows only)
-- *Optional*   Zeppelin 0.12.1 or Jupyter (for interactive testing of Spark using Scala)
+## Overview
 
-### Installation
-Follow instructions on this page (but please see Java 8 SDK installation instructions below first, or you may be violating Oracle licensing agreements)
+Configuring Apache Spark 4.x with Scala 2.13, Java 21, and Delta Lake in Maven often runs into thorny setup issues:
+- Java 21 strong module encapsulation (`--add-opens` requirements for Spark internal reflection).
+- Maven assembly fat-JAR bloat when Spark / Scala runtime jars are bundled inadvertently instead of marked `provided`.
+- IDE runtime classpath issues (`ClassNotFoundException`) when dependencies are marked `provided`.
+- Spark unit test isolation, Derby metastore lock contention, and log verbosity.
 
-1. Install Java 21 SDK - I recommend using the zip packages in the Java 21 (LTS) section (use apt on Linux, and download from Zulu Systems for Windows or MacOS
-1. add SYSTEM ENV variable **JAVA_HOME=c:\jdk21**  (or full path to where you installed/unzipped this)
-1. add **c:\jdk21\bin**  to your PATH
-1. To test your installation, open new cmd prompt,
-    run: **java -version**   
-    You should see JVM runtime information
+This repository serves as a **battle-tested baseline skeleton** that solves these challenges out of the box so you can start writing Spark jobs and unit tests immediately.
 
-### Spark 4.2.1
-1.  Goto **https://spark.apache.org/downloads.html**
-1.  Download **spark-4.2.1-bin-hadoop3.4.tgz**   
-1.  untar (using cmdline tar xvf) somewhere on your drive.  It will create a folder called: **spark-4.2.1-bin-hadoop3.4\**
-1.  you can rename this folder to be something shorter if you wish
-1.  add SYSTEM ENV variable **SPARK_HOME=** directory where you put this
-1.  add SYSTEM ENV variable **HADOOP_HOME=** directory where you put this
-1.  add **(base folder)\spark-4.2.1-bin-hadoop3.4\bin** to your PATH
-1.  To test your installation, open new cmd prompt, 
-1.  modify your conf/spark-defaults.conf to include **spark.driver.memory 12g**
-   run: **spark-shell**   
-   You should get a spark shell interpreter running
+---
 
-### If on Windows, you'll also need Hadoop Winutils binaries
-1.  I recommend using files from here: https://github.com/cdarlint/winutils 
-1.  unzip to c:\hadoop (or folder of your choice)
-1.  copy the winutils.exe from this bin folder to your **spark\bin**  directory
+## Key Features
 
+- **Apache Spark 4.x & Delta Lake 4.x**: Tested with Spark 4.2.1 and Delta Lake 4.2.0.
+- **Java 21 (LTS) & Scala 2.13**: Built for modern LTS Java runtimes with Java 17 bytecode compatibility flags.
+- **Optimized Unit Testing (`TestSparkSession`)**:
+  - Reusable test suite trait using `ScalaTest` (FlatSpec) and `JUnit 4`.
+  - Selective log suppression (reduces noisy Spark/Hadoop/Hive logs during test execution).
+  - Synchronized test execution to prevent local Hive/Derby metastore lock collisions.
+  - In-memory DataFrame creation helpers (`mkDataFrame`).
+- **Lean Assembly Fat-JAR**:
+  - Configured with `maven-assembly-plugin` to package third-party dependencies while excluding Spark and Scala runtime libraries (`provided` scope).
+- **Sample End-to-End ETL**:
+  - CSV ingestion with customizable read options.
+  - Spark SQL and DataFrame API transformations.
+  - User Defined Functions (UDF) and Dataset `map` examples.
+  - Parquet write with Gzip compression and Hive external table registration.
+- **Cross-Platform Scripts**: Includes `./run.sh` for Linux/macOS and `run.bat` for Windows.
 
+---
 
-### Build
+## Tech Stack
 
-Either use Intellij IDEA with scala support (import maven project)
+| Component | Version | Notes |
+|:---|:---|:---|
+| **Java** | 21 (LTS) | Compatible with OpenJDK / Temurin / Zulu / Corretto |
+| **Scala** | 2.13.18 | Modern Scala 2.13 series |
+| **Apache Spark** | 4.2.1 | `spark-core`, `spark-sql`, `spark-hive` |
+| **Delta Lake** | 4.2.0 | `delta-spark` |
+| **Apache Maven** | 3.9.9+ | Build and dependency orchestration |
+| **ScalaTest** | 3.2.19 | Unit testing framework |
+| **JUnit** | 4.13.2 | Test runner integration (`JUnitRunner`) |
+| **JaCoCo** | 0.8.12 | Code coverage metrics |
 
-OR
+---
 
-install maven 3.9.9+  (download zip from: https://maven.apache.org/ref/3.9.9/download.cgi , put the resulting maven/bin/ folder in PATH so mvn will be executable in cmdline)
+## System Requirements
 
+Running Spark jobs locally and compiling Scala requires adequate memory and CPU:
 
-### Build and run on cmdline
+| Tier | RAM | CPU Cores | Storage | Experience |
+|:---|:---|:---|:---|:---|
+| **Recommended** | 16 GB - 32 GB | 8+ cores / 16 threads | SSD | Fast compilation, smooth IDE debugging, snappy tests |
+| **Minimum** | 8 GB - 16 GB | 4 cores / 8 threads | SSD | Functional, may feel slower during full builds |
+| **Not Recommended** | < 8 GB | 2 cores | HDD | High risk of compilation timeouts and JVM out-of-memory errors |
 
-mvn package
+---
 
-This will do a mvn package which:
-1. compiles scala source code
-2. runs unit tests
-3. builds jar including 3rd party dependencies in target/
-4. clean out output directory, and
+## Prerequisites & Installation
 
+### 1. Java 21 (LTS)
+Install an OpenJDK 21 distribution, such as [Eclipse Temurin](https://adoptium.net/) or [Azul Zulu](https://www.azul.com/downloads/):
+- **Linux (Ubuntu/Debian)**:
+  ```bash
+  sudo apt update && sudo apt install -y openjdk-21-jdk
+  ```
+- **macOS (Homebrew)**:
+  ```bash
+  brew install openjdk@21
+  ```
+- **Windows**: Download the `.msi` or `.zip` installer from Adoptium. Set your environment variables:
+  - `JAVA_HOME` pointing to your JDK 21 root folder (e.g., `C:\Program Files\Eclipse Adoptium\jdk-21...`).
+  - Add `%JAVA_HOME%\bin` (Windows) or `$JAVA_HOME/bin` (Linux/macOS) to `PATH`.
 
-### Debug
+Verify:
+```bash
+java -version
+```
 
-Use Intellij IDEA's Debugger
-Make sure to check the option in (Run Configurations):
+### 2. Apache Maven 3.9+
+Download and install Maven 3.9.9 or later from [maven.apache.org](https://maven.apache.org/download.cgi).
+Verify:
+```bash
+mvn -version
+```
 
-**"Include Dependencies with Provided Scope"**
+### 3. Apache Spark 4.x (Optional, for CLI `spark-submit`)
+If you want to run jobs via the `spark-submit` command-line tool:
+1. Download `spark-4.2.1-bin-hadoop3.tgz` from the [Apache Spark Downloads page](https://spark.apache.org/downloads.html).
+2. Extract the archive to a directory of your choice.
+3. Set environment variables:
+   - `SPARK_HOME=/path/to/spark-4.2.1-bin-hadoop3`
+   - Add `$SPARK_HOME/bin` (or `%SPARK_HOME%\bin`) to `PATH`.
 
-The maven build pom.xml has all Scala and Spark dependencies declared as "provided", which makes resulting binary super lean and small, but this means when you debug, you have to tell the IDE to included it from elsewhere.
+### 4. Windows Hadoop Winutils (Windows Only)
+On Windows, Hadoop native file operations require `winutils.exe` and `hadoop.dll`:
+1. Download Hadoop 3.3/3.4 compatible binaries from [cdarlint/winutils](https://github.com/cdarlint/winutils).
+2. Place them in `C:\hadoop\bin`.
+3. Set environment variable `HADOOP_HOME=C:\hadoop` and add `C:\hadoop\bin` to `PATH`.
+4. Copy `winutils.exe` and `hadoop.dll` into `%SPARK_HOME%\bin` as well.
 
+---
 
+## Quick Start
 
+### 1. Clone the Repository
+```bash
+git clone https://github.com/zzhu8192/scala-spark40-example.git
+cd scala-spark40-example
+```
 
-### More Resources
-- https://spark.apache.org/docs/latest/quick-start.html
-- https://databricks.com/spark/about
+### 2. Run Unit Tests
+```bash
+mvn clean test
+```
+This compiles the Scala source code, configures the required Java 21 `--add-opens` flags via Surefire, boots the in-memory Spark test session, and runs the test suite.
+
+### 3. Package the Assembly JAR
+```bash
+mvn clean package -DskipTests
+```
+The output JAR is generated at:
+```
+target/example-1.0.0-SNAPSHOT-jar-with-dependencies.jar
+```
+
+---
+
+## Running the Application
+
+### Using the Included Helper Scripts
+
+#### Linux / macOS
+```bash
+./run.sh
+```
+
+#### Windows
+```cmd
+run.bat
+```
+
+The script verifies that `target/example-1.0.0-SNAPSHOT-jar-with-dependencies.jar` exists, checks for `spark-submit` on `PATH`, and executes the job with the bundled `src/main/resources/test.csv` input.
+
+### Using `spark-submit` Directly
+
+```bash
+spark-submit \
+  --class com.uj.example.Example \
+  --master "local[*]" \
+  target/example-1.0.0-SNAPSHOT-jar-with-dependencies.jar \
+  file://$(pwd)/src/main/resources/test.csv \
+  /tmp/spark-example-output
+```
+
+---
+
+## Running & Debugging in IntelliJ IDEA
+
+### Step 1: Open the Project
+1. Open IntelliJ IDEA (Community or Ultimate edition).
+2. Click **File -> Open** and select the `scala-spark40-example` root directory.
+3. Allow IntelliJ to import the project as a Maven project.
+
+### Step 2: Configure Project SDK
+1. Go to **File -> Project Structure -> Project**.
+2. Set **SDK** to **21** (JDK 21).
+3. Ensure the Scala plugin is installed in IntelliJ.
+
+### Step 3: Configure the Run/Debug Configuration
+
+> [!IMPORTANT]
+> **Enable "Include dependencies with Provided scope"**
+>
+> In `pom.xml`, Apache Spark and Scala dependencies are marked `<scope>provided</scope>` so they are not packaged inside the final deployment JAR (since the cluster runtime already provides them).
+>
+> When running or debugging locally inside IntelliJ, IntelliJ by default strips `provided` dependencies from the classpath. You MUST enable this setting:
+> 1. Open your Run/Debug Configuration (**Run -> Edit Configurations...**).
+> 2. Select your Application configuration for `com.uj.example.Example`.
+> 3. Click **Modify options** (or expand configuration options).
+> 4. Check **"Include dependencies with 'provided' scope"**.
+
+### Step 4: Add Java 21 JVM VM Options (If Running Main Class Directly)
+When executing or debugging `Example.main` directly in IntelliJ without `spark-submit`, add the following JVM options to the Run Configuration:
+
+```text
+--add-exports java.base/sun.nio.ch=ALL-UNNAMED
+--add-opens=java.base/java.lang=ALL-UNNAMED
+--add-opens=java.base/java.lang.invoke=ALL-UNNAMED
+--add-opens=java.base/java.lang.reflect=ALL-UNNAMED
+--add-opens=java.base/java.io=ALL-UNNAMED
+--add-opens=java.base/java.net=ALL-UNNAMED
+--add-opens=java.base/java.nio=ALL-UNNAMED
+--add-opens=java.base/java.util=ALL-UNNAMED
+--add-opens=java.base/java.util.concurrent=ALL-UNNAMED
+--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED
+--add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+--add-opens=java.base/sun.nio.cs=ALL-UNNAMED
+--add-opens=java.base/sun.security.action=ALL-UNNAMED
+--add-opens=java.base/sun.util.calendar=ALL-UNNAMED
+```
+*(Note: These options are already configured automatically in `pom.xml` for `mvn test`.)*
+
+---
+
+## Troubleshooting & Common Errors
+
+### 1. `ClassNotFoundException: org.apache.spark.sql.SparkSession`
+- **Symptom**: When running `Example.main` or running tests in IntelliJ, the run immediately crashes with a `ClassNotFoundException` or `NoClassDefFoundError` for Spark classes.
+- **Cause**: Spark dependencies are marked `<scope>provided</scope>` in `pom.xml`.
+- **Fix**: In your IntelliJ Run Configuration, click **Modify Options** and ensure **Include dependencies with 'provided' scope** is enabled.
+
+---
+
+### 2. `IllegalAccessException: module java.base does not open java.lang to unnamed module`
+- **Symptom**: Spark fails to initialize or crashes during serialization / memory allocation with:
+  ```
+  java.lang.IllegalAccessException: class org.apache.spark.storage.StorageUtils$
+  cannot access class sun.nio.ch.DirectBuffer (in module java.base)
+  ```
+- **Cause**: Strong module encapsulation introduced in Java 17 and enforced in Java 21 prevents reflective access to internal JDK packages.
+- **Fix**: Ensure the required `--add-opens` and `--add-exports` JVM arguments (listed in the IntelliJ section above and configured in `pom.xml` under `maven-surefire-plugin`) are present in your JVM arguments.
+
+---
+
+### 3. Windows: `Could not locate executable null\bin\winutils.exe in the Hadoop binaries`
+- **Symptom**: Running tests or jobs on Windows fails with `java.io.IOException: Could not locate executable ... winutils.exe`.
+- **Cause**: Hadoop uses Windows-specific native helper binaries (`winutils.exe` and `hadoop.dll`) for permissions and filesystem emulation.
+- **Fix**:
+  1. Download the binaries from [winutils](https://github.com/cdarlint/winutils) (select Hadoop 3.3.x or 3.4.x).
+  2. Set `HADOOP_HOME=C:\hadoop` where `C:\hadoop\bin\winutils.exe` exists.
+  3. Add `%HADOOP_HOME%\bin` to your system `PATH`.
+  4. Restart your terminal or IDE.
+
+---
+
+### 4. `Namespace test_db was created concurrently. Ignoring.` or Derby Metastore Lock Errors
+- **Symptom**: Warning logs during test runs or errors like `ERROR XSDB6: Another instance of Derby may have already booted the database`.
+- **Cause**: Apache Derby (used as the default local Hive metastore database) only allows one JVM process to lock `metastore_db` at a time.
+- **Fix**:
+  - The project's `TestSparkSession` trait isolates and synchronizes test runs to prevent test collisions.
+  - If a stale lock remains after an unexpected JVM crash, delete the local `metastore_db/` directory:
+    ```bash
+    rm -rf metastore_db/ derby.log spark-warehouse/
+    ```
+
+---
+
+### 5. Maven: `Plugin is modifying testCompileSourceRoots through add(), which will not work in Maven 4.0.0`
+- **Symptom**: A Maven build warning emitted by `scala-maven-plugin` during compilation.
+- **Cause**: Upstream `scala-maven-plugin` compatibility notice for the future Maven 4.0 release.
+- **Status**: Harmless. Can be suppressed if desired by adding `-Dmaven.project.sourceRoots.warningsDisabled=true` to Maven flags.
+
+---
+
+## Project Structure
+
+```text
+scala-spark40-example/
+├── .editorconfig               # Cross-editor formatting and indentation rules
+├── .gitignore                  # Git ignore rules for Maven, Spark, and IDE artifacts
+├── .github/
+│   └── workflows/
+│       └── ci.yml              # GitHub Actions CI workflow (Java 21 / Maven test)
+├── CONTRIBUTING.md             # Contribution guidelines
+├── LICENSE                     # Apache License 2.0
+├── README.md                   # Project documentation
+├── pom.xml                     # Maven project configuration with Spark 4.x / Scala 2.13
+├── run.sh                      # Shell runner script for Linux / macOS
+├── run.bat                     # Batch runner script for Windows
+└── src/
+    ├── main/
+    │   ├── resources/
+    │   │   └── test.csv        # Sample input data for the ETL pipeline
+    │   └── scala/
+    │       └── com/uj/example/
+    │           └── Example.scala  # Sample Spark job (ETL, UDFs, Hive table registration)
+    └── test/
+        └── scala/
+            └── com/uj/
+                ├── example/
+                │   └── ExampleTest.scala        # ScalaTest suite verifying transforms & SQL
+                └── testutils/
+                    └── TestSparkSession.scala   # Reusable, log-suppressed Spark test fixture
+```
+
+---
+
+## Contributing
+
+Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/zzhu8192/scala-spark40-example/issues). Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+---
+
+## License
+
+This project is licensed under the **Apache License 2.0** - see the [LICENSE](LICENSE) file for details.
